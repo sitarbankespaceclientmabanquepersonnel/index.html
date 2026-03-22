@@ -1,0 +1,2451 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SITAR BANK | Espace Client</title>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <script src="https://checkout.cinetpay.com/sdk/v2/cinetpay.sdk.js"></script>
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --surface: #f2f2f2;
+            --text-main: #000000;
+            --text-secondary: #666666;
+            --border: #e0e0e0;
+            --glass: rgba(255, 255, 255, 0.9);
+            --accent: #007aff;
+            --input-bg: #f2f2f7;
+            --radius: 26px;
+            --error: #d93025;
+            --duree-vie: 20s;
+        }
+
+        * {
+            margin: 0; padding: 0; box-sizing: border-box;
+            font-family: "Segoe UI", Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body { background-color: var(--bg-color); display: flex; justify-content: center; overflow-x: hidden; min-height: 100vh; }
+
+        /* --- 1. ECRAN D'ANIMATION (SPLASH) --- */
+        #splash-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 9999; transition: opacity 0.5s ease, visibility 0.5s;
+        }
+
+        .logo-draw { width: 80px; height: 80px; animation: zoomIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+        .safe-path { stroke-dasharray: 100; stroke-dashoffset: 100; animation: drawLine 1s ease-out 0.2s forwards; }
+        .bank-name-intro { font-size: 30px; font-weight: 800; margin-top: 20px; animation: slideUp 0.6s ease 0.6s forwards; opacity: 0; transform: translateY(20px); }
+
+        /* --- 2. FORMULAIRE DE CONNEXION --- */
+        #login-content {
+            position: fixed; top: 0; width: 100%; max-width: 400px; height: 100%;
+            background: #fff; z-index: 9000; display: none; flex-direction: column;
+            align-items: center; justify-content: center; padding: 20px; text-align: center;
+            opacity: 0; transform: translateY(10px); transition: all 0.6s ease;
+        }
+        #login-content.active { display: flex; opacity: 1; transform: translateY(0); }
+
+        .welcome-header h1 { font-size: 32px; font-weight: 800; margin-bottom: 5px; }
+        .welcome-header p { color: var(--text-secondary); margin-bottom: 30px; font-size: 15px; }
+        .form-group { text-align: left; margin-bottom: 15px; width: 100%; }
+        label { font-size: 13px; font-weight: 600; margin-left: 18px; color: var(--text-secondary); display: block; margin-bottom: 8px; }
+        input { width: 100%; padding: 20px 24px; border-radius: var(--radius); border: none; background-color: var(--input-bg); font-size: 16px; outline: none; }
+        .checkbox-group { display: flex; align-items: center; margin: 25px 0; font-size: 14px; cursor: pointer; }
+        .checkbox-group input { width: 22px; height: 22px; margin-right: 12px; }
+        .btn-submit { width: 100%; padding: 20px; border-radius: var(--radius); border: none; background-color: #000; color: #fff; font-size: 17px; font-weight: 700; cursor: pointer; }
+        .btn-submit:active { transform: scale(0.96); }
+
+        /* --- 3. VOTRE CODE DE BASE (INTERFACE) --- */
+        #main-app { display: none; width: 100%; max-width: 400px; opacity: 0; transition: opacity 0.5s ease; }
+
+        .app-container { width: 100%; position: relative; padding: 10px 20px 100px 20px; transition: padding-top 0.3s; }
+        .app-container.with-ticker { padding-top: 45px; }
+
+        header { 
+            padding: 10px 10px 15px 10px; 
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header-left h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.8px; }
+        .header-left .subtitle { color: var(--text-secondary); font-size: 13px; }
+        .unlock-btn {
+            background: #d93025;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            white-space: nowrap;
+        }
+        .unlock-btn:active { transform: scale(0.95); }
+
+        .balance-card { background: var(--surface); border: 1px solid var(--border); border-radius: 28px; padding: 22px; margin-bottom: 25px; text-align: center; transition: transform 0.2s; }
+        .balance-card:active { transform: scale(0.98); }
+        .balance-amount { font-size: 34px; font-weight: 800; margin: 8px 0; letter-spacing: -1.2px; }
+
+        .actions-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 25px; }
+        .action-item { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; }
+        .icon-box { width: 58px; height: 58px; background: var(--surface); border-radius: 22px; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: all 0.2s; }
+        .action-item:active .icon-box { transform: scale(0.9); background-color: #e5e5e5; }
+        .action-label { font-size: 11px; font-weight: 600; color: #444; }
+
+        .section-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 5px; }
+        .transaction-list { display: flex; flex-direction: column; gap: 5px; }
+        .transaction-item { display: flex; align-items: center; padding: 14px 10px; border-radius: 20px; cursor: pointer; }
+        .transaction-item:active { background-color: #f5f5f5; }
+        .trans-icon { width: 46px; height: 46px; border-radius: 15px; display: flex; align-items: center; justify-content: center; margin-right: 15px; font-size: 20px; }
+        .trans-details { flex: 1; }
+        .trans-name { font-weight: 600; font-size: 15px; }
+        .trans-date { color: var(--text-secondary); font-size: 12px; }
+        .trans-amount { font-weight: 700; font-size: 15px; }
+
+        /* Modal Détails (base) */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; justify-content: center; align-items: flex-end; z-index: 10000; backdrop-filter: blur(4px); }
+        .detail-sheet { width: 100%; max-width: 400px; background: #fff; border-radius: 32px 32px 0 0; padding: 30px; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1); }
+        .detail-sheet.active { transform: translateY(0); }
+        .handle { width: 40px; height: 5px; background: #ddd; border-radius: 10px; margin: -10px auto 20px; }
+        .detail-header { text-align: center; margin-bottom: 25px; }
+        .detail-value { font-size: 32px; font-weight: 800; margin: 10px 0; }
+        .detail-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f2f2f2; font-size: 14px; }
+        .close-btn { width: 100%; padding: 16px; background: #000; color: #fff; border: none; border-radius: 20px; font-weight: 700; margin-top: 25px; cursor: pointer; }
+
+        /* Nav Bar */
+        .nav-bar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 400px; background: var(--glass); backdrop-filter: blur(15px); display: flex; justify-content: space-around; padding: 12px 0 25px 0; border-top: 1px solid var(--border); z-index: 100; }
+        .nav-item { font-size: 24px; color: var(--text-secondary); cursor: pointer; padding: 8px; }
+        .nav-item.active { color: #000; }
+
+        /* Animations */
+        @keyframes zoomIn { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
+        @keyframes drawLine { to { stroke-dashoffset: 0; } }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+
+        /* ----- Styles pour l'alerte du bouton Envoyer (ajout 1) ----- */
+        .custom-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(5px);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 20000;
+        }
+        .custom-loader {
+            background: white; padding: 35px 25px; border-radius: 30px;
+            text-align: center; max-width: 320px; width: 80%;
+        }
+        .spinner {
+            width: 40px; height: 40px; border: 4px solid #f3f3f3;
+            border-top: 4px solid #000; border-radius: 50%;
+            animation: spin 1s linear infinite; margin: 0 auto 15px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .percentage { font-size: 20px; font-weight: 600; color: #000; }
+
+        .alert-card {
+            background: #ffffff; width: 88%; max-width: 380px;
+            padding: 35px 25px; border-radius: 30px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+        .warning-icon { margin-bottom: 20px; }
+        .alert-card h2 { font-size: 20px; margin-bottom: 15px; color: #000; }
+        .message-box {
+            text-align: left; font-size: 14px; line-height: 1.6; color: #444;
+            border-top: 1px solid #eee; padding-top: 20px;
+        }
+        .data-row {
+            display: flex; justify-content: space-between;
+            margin: 10px 0; font-weight: 600;
+        }
+        .price-red { color: #d70000; }
+        .notice {
+            margin-top: 20px; font-size: 12px; color: #888;
+            font-style: italic; text-align: center;
+        }
+
+        /* ----- Styles pour l'overlay "Tout voir" (Suivi des Dépenses) (ajout 2) ----- */
+        .expense-fullscreen {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            background: #f2f2f7;
+            z-index: 20000;
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+            display: none;
+        }
+        .expense-header {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto 25px;
+            padding-left: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .expense-header h1 { font-size: 28px; font-weight: 700; margin: 0; }
+        .expense-header p { color: #8e8e93; margin: 5px 0 0; font-size: 14px; }
+        .close-expense-btn {
+            font-size: 28px;
+            font-weight: 300;
+            cursor: pointer;
+            padding: 10px;
+            color: #000;
+        }
+        .list-container {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .expense-item {
+            background: #ffffff;
+            padding: 16px;
+            border-radius: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .expense-item:active {
+            transform: scale(0.96);
+            background-color: #ebebeb;
+        }
+        .left-side { display: flex; align-items: center; gap: 15px; }
+        .icon-box {
+            width: 45px;
+            height: 45px;
+            background: #f8f8f8;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .info { display: flex; flex-direction: column; }
+        .label { font-weight: 600; font-size: 15px; }
+        .date { font-size: 12px; color: #8e8e93; }
+        .right-side { text-align: right; }
+        .amount { font-weight: 700; font-size: 15px; display: block; }
+        .status { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+        .status.green { color: #34c759; }
+        .status.red { color: #ff3b30; }
+
+        /* MODAL DETAILS (pour les dépenses) */
+        #expenseDetailsOverlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            display: none;
+            justify-content: center;
+            align-items: flex-end;
+            z-index: 21000;
+        }
+        .expense-details-card {
+            background: #fff;
+            width: 100%;
+            max-width: 450px;
+            border-radius: 40px 40px 0 0;
+            padding: 30px;
+            box-sizing: border-box;
+            transform: translateY(100%);
+            transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+        }
+        .expense-details-card.show { transform: translateY(0); }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+        .detail-row span:first-child { color: #8e8e93; }
+        .detail-row span:last-child { font-weight: 600; }
+        .close-bar {
+            width: 40px; height: 5px; background: #ddd;
+            border-radius: 10px; margin: 0 auto 20px;
+        }
+
+        /* ----- Styles pour l'overlay "Profil" (ajout 3) ----- */
+        #profileOverlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            background: #ffffff;
+            z-index: 25000;
+            overflow-y: auto;
+            display: none;
+        }
+        .profile-container {
+            width: 100%;
+            max-width: 450px;
+            margin: 0 auto;
+            padding: 20px;
+            padding-bottom: 100px;
+            position: relative;
+        }
+        .profile-close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 32px;
+            font-weight: 300;
+            cursor: pointer;
+            color: #000;
+            z-index: 10;
+        }
+        .profile-header {
+            padding: 50px 10px 20px 10px;
+            text-align: center;
+        }
+        .avatar-box {
+            width: 90px;
+            height: 90px;
+            background: #000;
+            color: white;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 35px;
+            margin: 0 auto 15px;
+        }
+        .user-name { font-size: 24px; font-weight: 700; }
+        .user-status { color: #707070; font-size: 13px; margin-bottom: 15px; }
+        .group-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #707070;
+            margin: 15px 0 8px 15px;
+            text-transform: uppercase;
+        }
+        .menu-group {
+            background: #f7f7f7;
+            border-radius: 28px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            border: 1px solid #e8e8e8;
+        }
+        .menu-item {
+            display: flex;
+            align-items: center;
+            padding: 18px 20px;
+            background: none;
+            border: none;
+            width: 100%;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-bottom: 1px solid #e8e8e8;
+        }
+        .menu-item:last-child { border-bottom: none; }
+        .menu-item:active { background: #eeeeee; }
+        .menu-item i { font-size: 20px; margin-right: 15px; width: 25px; text-align: center; }
+        .menu-item span { flex: 1; text-align: left; font-size: 15px; font-weight: 500; }
+        .menu-item .chevron { color: #ccc; font-size: 18px; }
+        .content-panel {
+            display: none;
+            padding: 20px;
+            background: #fff;
+            border: 1px solid #e8e8e8;
+            border-radius: 20px;
+            margin: 10px 0;
+            font-size: 14px;
+            animation: slideDown 0.3s ease-out;
+        }
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .content-panel h4 { margin-bottom: 10px; font-size: 16px; font-weight: 700; }
+        .content-panel p { margin-bottom: 8px; color: #444; line-height: 1.5; }
+
+        /* ----- Styles pour l'overlay "Plus" (Services Bancaires) (ajout 4) ----- */
+        #servicesFullscreen {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            background: #ffffff;
+            z-index: 30000;
+            overflow-y: auto;
+            display: none;
+        }
+        .services-container {
+            width: 100%;
+            max-width: 450px;
+            margin: 0 auto;
+            padding: 20px;
+            padding-bottom: 100px;
+            position: relative;
+        }
+        .services-close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 32px;
+            font-weight: 300;
+            cursor: pointer;
+            color: #000;
+            z-index: 10;
+        }
+        #servicesAlertSheet {
+            position: fixed;
+            top: -100%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 450px;
+            background: #ffffff;
+            padding: 40px 20px 30px 20px;
+            border-bottom-left-radius: 35px;
+            border-bottom-right-radius: 35px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            z-index: 31000;
+            transition: top 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+            text-align: center;
+            border: 1px solid #e8e8e8;
+        }
+        #servicesAlertSheet.active { top: 0; }
+        .services-alert-icon { font-size: 60px; margin-bottom: 15px; display: block; }
+        .services-alert-text { font-size: 16px; font-weight: 600; line-height: 1.4; margin-bottom: 20px; }
+        .services-pull-handle {
+            width: 40px;
+            height: 4px;
+            background: #ddd;
+            border-radius: 2px;
+            margin: 0 auto;
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            cursor: pointer;
+        }
+        .services-header { padding: 40px 10px 30px 10px; }
+        .services-header h1 { font-size: 30px; font-weight: 700; }
+        .services-header p { color: #666; font-size: 14px; }
+        .services-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 40px;
+        }
+        .service-card {
+            background: #f2f2f2;
+            border: 1px solid #e8e8e8;
+            padding: 20px;
+            border-radius: 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .service-card:active { transform: scale(0.96); }
+        .service-icon-circle {
+            width: 45px;
+            height: 45px;
+            background: #000;
+            color: #fff;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+        .service-card span { font-size: 15px; font-weight: 600; }
+        .services-settings-title { font-size: 18px; font-weight: 700; margin: 0 0 15px 10px; }
+        .faq-item { border-bottom: 1px solid #e8e8e8; }
+        .faq-question {
+            width: 100%; padding: 20px 10px; background: none; border: none;
+            display: flex; justify-content: space-between; align-items: center;
+            cursor: pointer; font-size: 15px; font-weight: 500;
+        }
+        .faq-answer { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; background: #fafafa; border-radius: 15px; }
+        .faq-answer p { padding: 15px; font-size: 13px; color: #666; }
+        .services-nav-bar {
+            position: fixed; bottom: 0; width: 100%; max-width: 450px;
+            background: rgba(255,255,255,0.9); backdrop-filter: blur(15px);
+            display: flex; justify-content: space-around; padding: 15px 0; border-top: 1px solid #e8e8e8;
+            z-index: 32000;
+        }
+        .services-nav-item { font-size: 22px; color: #ccc; }
+        .services-nav-item.active { color: #000; }
+
+        /* ----- Styles pour l'overlay "Historique" (Gestion des Factures) (ajout 5) ----- */
+        #historyFullscreen {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            background: #ffffff;
+            z-index: 35000;
+            overflow-y: auto;
+            display: none;
+        }
+        .history-container {
+            width: 100%;
+            max-width: 450px;
+            margin: 0 auto;
+            padding: 20px;
+            padding-bottom: 100px;
+            position: relative;
+        }
+        .history-close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 32px;
+            font-weight: 300;
+            cursor: pointer;
+            color: #000;
+            z-index: 10;
+        }
+        .history-scroll-nav {
+            display: flex;
+            overflow-x: auto;
+            white-space: nowrap;
+            padding: 15px 10px;
+            gap: 12px;
+            scrollbar-width: none;
+            margin-top: 40px;
+        }
+        .history-scroll-nav::-webkit-scrollbar { display: none; }
+        .history-nav-btn {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-width: 90px;
+            height: 90px;
+            background: #f2f2f2;
+            border: 1px solid #e0e0e0;
+            border-radius: 24px;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+        }
+        .history-nav-btn:active { transform: scale(0.95); background: #e0e0e0; }
+        .history-nav-btn i { font-size: 24px; margin-bottom: 8px; }
+        .history-nav-btn span { font-size: 11px; font-weight: 600; text-align: center; white-space: normal; line-height: 1.2; }
+        .history-transaction-container {
+            padding: 20px;
+        }
+        .history-transaction-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 0;
+            border-bottom: 1px solid #f2f2f2;
+            animation: fadeIn 0.4s ease;
+            cursor: pointer;
+        }
+        .history-transaction-item:active { background-color: #f9f9f9; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .history-trans-left { display: flex; align-items: center; }
+        .history-trans-icon {
+            width: 45px;
+            height: 45px;
+            background: #000;
+            color: #fff;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-size: 20px;
+        }
+        .history-trans-info p { font-weight: 600; font-size: 15px; }
+        .history-trans-info span { font-size: 12px; color: #666; }
+        .history-trans-amount { font-weight: 800; font-size: 16px; }
+
+        /* MODAL DETAILS pour l'historique */
+        #historyDetailsOverlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            display: none;
+            justify-content: center;
+            align-items: flex-end;
+            z-index: 36000;
+        }
+        .history-details-card {
+            background: #fff;
+            width: 100%;
+            max-width: 450px;
+            border-radius: 40px 40px 0 0;
+            padding: 30px;
+            box-sizing: border-box;
+            transform: translateY(100%);
+            transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+        }
+        .history-details-card.show { transform: translateY(0); }
+        .history-detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+        .history-detail-row span:first-child { color: #8e8e93; }
+        .history-detail-row span:last-child { font-weight: 600; }
+
+        /* ----- Styles pour l'overlay "Cartes" (ajout 6) ----- */
+        #cardsFullscreen {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            background: #ffffff;
+            z-index: 40000;
+            overflow-y: auto;
+            display: none;
+        }
+        .cards-container {
+            width: 100%;
+            max-width: 450px;
+            margin: 0 auto;
+            padding: 20px;
+            padding-bottom: 100px;
+            position: relative;
+        }
+        .cards-close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 32px;
+            font-weight: 300;
+            cursor: pointer;
+            color: #000;
+            z-index: 10;
+        }
+        .cards-header {
+            width: 100%;
+            max-width: 350px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 40px auto 15px;
+        }
+        .cards-header h1 { font-size: 24px; margin: 0; font-weight: 800; }
+        .eye-btn {
+            width: 35px;
+            height: 35px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .cards-list {
+            width: 100%;
+            max-width: 350px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .card-item {
+            background-color: #000000;
+            color: #ffffff;
+            padding: 15px 20px;
+            border-radius: 20px;
+            height: 70px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            transition: transform 0.1s ease;
+            cursor: pointer;
+        }
+        .card-item:active { transform: scale(0.96); }
+        .card-item:nth-child(even) { background-color: #222222; }
+        .card-name { font-size: 11px; opacity: 0.7; text-transform: uppercase; }
+        .card-number { font-size: 16px; font-weight: bold; margin: 2px 0; }
+        .card-exp { font-size: 10px; opacity: 0.5; }
+        .add-card-btn {
+            margin: 20px auto 0;
+            border: 1.5px solid #000000;
+            background: none;
+            padding: 10px 25px;
+            border-radius: 50px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+            display: block;
+            width: fit-content;
+        }
+        #cardsAlertBox {
+            position: fixed;
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 85%;
+            max-width: 320px;
+            background-color: #ffffff;
+            color: #000000;
+            padding: 18px;
+            border-radius: 24px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            border: 1px solid #eeeeee;
+            transition: top 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+            z-index: 41000;
+        }
+        #cardsAlertBox.show { top: 20px; }
+
+        /* ----- Styles pour l'overlay "Scanner" (ajout 7) ----- */
+        #scannerFullscreen {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            background: #ffffff;
+            z-index: 45000;
+            overflow-y: auto;
+            display: none;
+        }
+        .scanner-container {
+            width: 100%;
+            max-width: 450px;
+            margin: 0 auto;
+            padding: 20px;
+            padding-bottom: 100px;
+            position: relative;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .scanner-close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 32px;
+            font-weight: 300;
+            cursor: pointer;
+            color: #000;
+            z-index: 10;
+        }
+        #scanner-qrcode-container {
+            padding: 20px;
+            background: #ffffff;
+            border: 1px solid #e8e8e8;
+            border-radius: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        }
+        .scanner-label {
+            margin-top: 30px;
+            font-size: 18px;
+            font-weight: 600;
+            color: #000000;
+            text-align: center;
+        }
+        .scanner-subtitle {
+            margin-top: 5px;
+            font-size: 14px;
+            color: #666666;
+        }
+
+        /* ----- Styles pour l'overlay "Détails du compte" (Certification) (ajout 8) ----- */
+        #accountDetailsFullscreen {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(8px);
+            z-index: 50000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+        .account-details-container {
+            width: 90%;
+            max-width: 380px;
+            position: relative;
+        }
+        .account-close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 28px;
+            color: #000;
+            cursor: pointer;
+            z-index: 10;
+            background: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .cert-popup {
+            background: #fff;
+            padding: 30px;
+            border-radius: 32px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.2);
+        }
+        @keyframes popIn {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .cert-icon { font-size: 50px; color: #000; margin-bottom: 15px; }
+        .cert-title { font-weight: 700; font-size: 18px; margin-bottom: 20px; }
+        .info-box {
+            background: #f2f2f2;
+            padding: 20px;
+            border-radius: 20px;
+            text-align: left;
+            font-family: monospace;
+            font-size: 13px;
+            line-height: 1.8;
+            margin-bottom: 25px;
+        }
+        .btn-action {
+            background: #000;
+            color: #fff;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s;
+        }
+        .btn-action:active { transform: scale(0.95); }
+
+        /* Popup d'erreur interne */
+        .cert-error-popup {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(8px);
+            z-index: 51000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+        .error-card {
+            background: #fff;
+            border: 2px solid #d93025;
+            padding: 30px;
+            border-radius: 32px;
+            text-align: center;
+            max-width: 380px;
+        }
+        .error-msg {
+            color: #d93025;
+            font-weight: 700;
+            margin: 15px 0;
+            animation: shake 0.4s ease-in-out;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        /* ----- Styles pour l'overlay "Transaction" (Alerte Retrait) (ajout 9) ----- */
+        #transactionAlertFullscreen {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            z-index: 55000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+        .transaction-popup {
+            background: #ffffff;
+            width: 90%;
+            max-width: 400px;
+            padding: 40px 30px;
+            border-radius: 35px;
+            text-align: center;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+            transform: scale(0);
+            animation: zoomPlus 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        @keyframes zoomPlus {
+            from { transform: scale(0); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .transaction-icon-container {
+            margin-bottom: 20px;
+            animation: pulseError 2s infinite;
+        }
+        .transaction-icon-container i {
+            font-size: 70px;
+            color: #d93025;
+        }
+        .transaction-alert-title {
+            font-size: 20px;
+            font-weight: 800;
+            color: #000000;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+        }
+        .transaction-alert-message {
+            font-size: 15px;
+            line-height: 1.6;
+            color: #d93025;
+            font-weight: 600;
+            margin-bottom: 30px;
+        }
+        @keyframes pulseError {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .transaction-btn-confirm {
+            background: #000;
+            color: #fff;
+            border: none;
+            padding: 16px 40px;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s;
+        }
+        .transaction-btn-confirm:active {
+            transform: scale(0.95);
+        }
+
+        /* ----- Bandeau d'alerte (top-ticker) ----- */
+        #top-ticker {
+            position: fixed;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 35px;
+            background: #ffffff;
+            border-bottom: 1px solid #e8e8e8;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            z-index: 60000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .status-tag {
+            background: #d93025;
+            color: white;
+            padding: 0 12px;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            font-size: 10px;
+            font-weight: 900;
+            z-index: 10;
+            position: relative;
+            flex-shrink: 0;
+        }
+        .ticker-wrapper {
+            display: flex;
+            white-space: nowrap;
+            animation: marquee-infinite 15s linear infinite;
+        }
+        .ticker-content {
+            display: inline-block;
+            padding-right: 50px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #000000;
+        }
+        .highlight-red {
+            color: #d93025;
+            font-weight: 800;
+            margin: 0 4px;
+        }
+        @keyframes slideInBar {
+            to { left: 0; }
+        }
+        @keyframes slideOutBar {
+            to { left: 100%; }
+        }
+        @keyframes marquee-infinite {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        /* ----- Popup d'erreur pour le formulaire (ajout 10) ----- */
+        #loginErrorAlert {
+            position: fixed;
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 85%;
+            max-width: 320px;
+            background-color: #ffffff;
+            color: #d93025;
+            padding: 18px;
+            border-radius: 24px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            border: 1px solid #eeeeee;
+            transition: top 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+            z-index: 95000;
+        }
+        #loginErrorAlert.show { top: 20px; }
+
+        /* ----- Popup de succès pour le code PIN (ajout 11) ----- */
+        #pinSuccessAlert {
+            position: fixed;
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 85%;
+            max-width: 320px;
+            background-color: #ffffff;
+            color: #28a745;
+            padding: 18px;
+            border-radius: 24px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            border: 1px solid #eeeeee;
+            transition: top 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+            z-index: 95001;
+        }
+        #pinSuccessAlert.show { top: 20px; }
+
+        /* ----- Overlay de sécurité (PIN) (ajout 12) ----- */
+        #pin-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.98);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            backdrop-filter: blur(10px);
+        }
+        .pin-box {
+            width: 100%;
+            max-width: 350px;
+            text-align: center;
+        }
+        .pin-header i { font-size: 45px; margin-bottom: 10px; display: block; }
+        .pin-header h2 { font-size: 24px; font-weight: 700; }
+        .pin-header p { font-size: 14px; color: #666; margin-top: 5px; }
+        .pin-dots {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin: 40px 0;
+        }
+        .pin-dot {
+            width: 14px;
+            height: 14px;
+            border: 2px solid #ddd;
+            border-radius: 50%;
+            transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .pin-dot.active {
+            background: #000;
+            border-color: #000;
+            transform: scale(1.3);
+        }
+        .pin-keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            justify-items: center;
+        }
+        .key {
+            width: 75px;
+            height: 75px;
+            background: var(--surface);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .key:active { background: #e0e0e0; transform: scale(0.9); }
+        .key.action { background: transparent; font-size: 14px; font-weight: 400; }
+        .shake-dots { animation: shake 0.35s ease-in-out; }
+
+        /* ----- Overlay de déblocage CinetPay (ajout 13) ----- */
+        #unlockOverlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(15px);
+            z-index: 100000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+        .unlock-card {
+            width: 90%;
+            max-width: 420px;
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 40px;
+            padding: 40px 30px;
+            text-align: center;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+            transform: scale(0);
+            animation: zoomPlus 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            position: relative;
+        }
+        .unlock-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 28px;
+            color: #000;
+            cursor: pointer;
+            background: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .unlock-icon {
+            font-size: 60px;
+            color: #ff0000;
+            margin-bottom: 20px;
+            display: block;
+        }
+        .unlock-card h2 {
+            font-size: 22px;
+            font-weight: 800;
+            margin-bottom: 20px;
+            color: #000;
+        }
+        .unlock-message {
+            font-size: 15px;
+            line-height: 1.6;
+            color: #333;
+            margin-bottom: 25px;
+        }
+        .unlock-highlight {
+            color: #ff0000;
+            font-weight: 700;
+            display: block;
+            margin-top: 10px;
+        }
+        .btn-pay {
+            width: 100%;
+            padding: 18px;
+            background: #000;
+            color: #fff;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.3s;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .btn-pay:active { transform: scale(0.96); }
+        .footer-note {
+            font-size: 12px;
+            color: #666;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="splash-screen">
+        <div class="logo-draw">
+            <svg viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="1.2">
+                <rect class="safe-path" x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle class="safe-path" cx="12" cy="12" r="4"></circle>
+                <line class="safe-path" x1="12" y1="12" x2="14" y2="12"></line>
+            </svg>
+        </div>
+        <h1 class="bank-name-intro">SITAR BANK</h1>
+    </div>
+
+    <!-- Popup d'erreur pour le formulaire (texte rouge) -->
+    <div id="loginErrorAlert">
+        Combinaison incorrecte ou case non cochée
+    </div>
+
+    <!-- Popup de succès pour le code PIN -->
+    <div id="pinSuccessAlert">
+        Code PIN configuré avec succès
+    </div>
+
+    <!-- Overlay de sécurité PIN -->
+    <div id="pin-overlay">
+        <div class="pin-box">
+            <div class="pin-header">
+                <i class="ri-shield-keyhole-fill"></i>
+                <h2 id="pin-title">Sécurité</h2>
+                <p id="pin-subtitle">Veuillez confirmer votre identité</p>
+            </div>
+            <div class="pin-dots" id="pin-dots-container">
+                <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+            </div>
+            <div class="pin-keypad">
+                <div class="key" onclick="pinTaper(1)">1</div>
+                <div class="key" onclick="pinTaper(2)">2</div>
+                <div class="key" onclick="pinTaper(3)">3</div>
+                <div class="key" onclick="pinTaper(4)">4</div>
+                <div class="key" onclick="pinTaper(5)">5</div>
+                <div class="key" onclick="pinTaper(6)">6</div>
+                <div class="key" onclick="pinTaper(7)">7</div>
+                <div class="key" onclick="pinTaper(8)">8</div>
+                <div class="key" onclick="pinTaper(9)">9</div>
+                <div class="key action" onclick="pinFermer()">Annuler</div>
+                <div class="key" onclick="pinTaper(0)">0</div>
+                <div class="key action" onclick="pinEffacer()"><i class="ri-backspace-line" style="font-size: 24px;"></i></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlay de déblocage CinetPay -->
+    <div id="unlockOverlay">
+        <div class="unlock-card">
+            <div class="unlock-close" onclick="closeUnlock()">✕</div>
+            <i class="ri-error-warning-fill unlock-icon"></i>
+            <h2>Compte Suspendu</h2>
+            <p class="unlock-message">
+                Cher utilisateur, votre compte est actuellement bloqué pour des raisons de conformité.
+                Pour lever cette restriction, vous devez d'abord acquitter les frais de déblocage obligatoires.
+                <span class="unlock-highlight">
+                    Le compte s'ouvrira automatiquement après paiement et vérification finale de la banque.
+                </span>
+            </p>
+            <button class="btn-pay" onclick="checkout()">Payer d'un compte externe</button>
+            <p class="footer-note">Système sécurisé par cryptage bancaire.</p>
+        </div>
+    </div>
+
+    <div id="login-content">
+        <div class="welcome-header">
+            <p>Bienvenue sur</p>
+            <h1>SITAR BANK</h1>
+            <p>Connectez-vous à votre espace sécurisé</p>
+        </div>
+        <form id="loginForm" style="width: 100%;">
+            <div class="form-group"><label>Numéro de compte</label><input type="text" id="acc" inputmode="numeric" placeholder="Identifiant numérique" required></div>
+            <div class="form-group"><label>Mot de passe</label><input type="password" id="pwd" placeholder="Mot de passe" required></div>
+            <div class="form-group"><label>Code secret</label><input type="text" id="sec" inputmode="numeric" maxlength="6" placeholder="******" required></div>
+            <label class="checkbox-group"><input type="checkbox" id="confirmCheck" required><span>Je confirme être le titulaire</span></label>
+            <button type="submit" class="btn-submit">Accéder à mon espace</button>
+        </form>
+    </div>
+
+    <div id="main-app">
+        <div class="app-container" id="appContainer">
+            <header>
+                <div class="header-left">
+                    <p class="subtitle">Espace Personnel</p>
+                    <h1>ESPACE CLIENT</h1>
+                </div>
+                <button class="unlock-btn" onclick="openUnlock()">Débloquer</button>
+            </header>
+
+            <div class="balance-card">
+                <p class="subtitle">Solde total disponible</p>
+                <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                    <span class="balance-amount" id="balanceAmount">10 000 €</span>
+                    <i id="toggleBalanceBtn" class="ri-eye-line" style="font-size: 24px; cursor: pointer;" onclick="toggleBalance()"></i>
+                </div>
+                <button id="detailsAccountBtn" style="background: #000; color: #fff; border: none; padding: 10px 22px; border-radius: 22px; font-size: 12px; font-weight: 600;">Détails du compte</button>
+            </div>
+
+            <div class="actions-grid">
+                <div class="action-item"><div class="icon-box"><i class="ri-send-plane-fill"></i></div><span class="action-label">Envoyer</span></div>
+                <div class="action-item"><div class="icon-box"><i class="ri-qr-code-line"></i></div><span class="action-label">Scanner</span></div>
+                <div class="action-item"><div class="icon-box"><i class="ri-bank-card-line"></i></div><span class="action-label">Cartes</span></div>
+                <div class="action-item"><div class="icon-box"><i class="ri-more-fill"></i></div><span class="action-label">Plus</span></div>
+            </div>
+
+            <div class="section-title">
+                <h3 style="font-size: 17px; font-weight: 700;">Activités récentes</h3>
+                <span style="font-size: 13px; color: var(--accent); font-weight: 600;">Tout voir</span>
+            </div>
+
+            <div class="transaction-list" id="transList"></div>
+
+            <div class="nav-bar">
+                <div class="nav-item" id="homeNav"><i class="ri-home-5-line"></i></div>
+                <div class="nav-item" id="transactionNav"><i class="ri-exchange-funds-line"></i></div>
+                <div class="nav-item" id="historyNav"><i class="ri-history-line"></i></div>
+                <div class="nav-item" id="profileNav"><i class="ri-user-3-line"></i></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="detail-sheet" id="detailSheet">
+            <div class="handle"></div>
+            <div class="detail-header">
+                <p class="subtitle" id="detType">Paiement</p>
+                <div class="detail-value" id="detAmount">0.00 €</div>
+                <p style="color: #28a745; font-size: 13px; font-weight: 700;">● Confirmé</p>
+            </div>
+            <div class="detail-row"><span class="detail-label">Destinataire</span><span id="detName" style="font-weight:600">---</span></div>
+            <div class="detail-row"><span class="detail-label">Date</span><span id="detDate" style="font-weight:600">---</span></div>
+            <div class="detail-row"><span class="detail-label">Référence</span><span id="detRef" style="font-weight:600">---</span></div>
+            <button class="close-btn" onclick="closeDetails()">Fermer</button>
+        </div>
+    </div>
+
+    <!-- OVERLAY POUR "TOUT VOIR" (Suivi des Dépenses) -->
+    <div class="expense-fullscreen" id="expenseFullscreen">
+        <div class="expense-header">
+            <div>
+                <h1>Activité</h1>
+                <p>Dépenses hebdomadaires</p>
+            </div>
+            <div class="close-expense-btn" id="closeExpenseBtn">✕</div>
+        </div>
+        <div class="list-container" id="expenseList"></div>
+        <div id="expenseDetailsOverlay" onclick="closeExpenseDetails()">
+            <div class="expense-details-card" id="expenseDetailsCard" onclick="event.stopPropagation()">
+                <div class="close-bar"></div>
+                <h2 id="detTitleExpense" style="margin-top:0">Détails de la transaction</h2>
+                <div class="detail-row"><span>Référence</span><span id="detRefExpense">#TR-882910</span></div>
+                <div class="detail-row"><span>Méthode de paiement</span><span>Carte Bancaire (Puce)</span></div>
+                <div class="detail-row"><span>Statut réseau</span><span id="detStatusExpense">Approuvé</span></div>
+                <div class="detail-row"><span>Banque émettrice</span><span>Système Central</span></div>
+                <div class="detail-row"><span>Montant total</span><span id="detAmountExpense" class="amount">0.00 €</span></div>
+                <button onclick="closeExpenseDetails()" style="width:100%; margin-top:20px; padding:15px; border-radius:20px; border:none; background:#000; color:#fff; font-weight:bold; cursor:pointer">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- OVERLAY POUR "PROFIL" -->
+    <div id="profileOverlay">
+        <div class="profile-container">
+            <div class="profile-close-btn" id="closeProfileBtn">✕</div>
+            <div class="profile-header">
+                <div class="avatar-box">
+                    <i class="ri-user-smile-line"></i>
+                </div>
+                <h2 class="user-name">M. Deschamps</h2>
+                <p class="user-status">Compte de Transfert Vérifié</p>
+            </div>
+
+            <p class="group-label">Gestion des fonds</p>
+            <div class="menu-group">
+                <button class="menu-item" onclick="showProfilePanel('beneficiaires')"><i class="ri-group-line"></i><span>Bénéficiaires enregistrés</span><i class="ri-arrow-right-s-line chevron"></i></button>
+                <div id="beneficiaires" class="content-panel">
+                    <h4>Gestion des contacts</h4>
+                    <p>Ajoutez, modifiez ou supprimez les comptes vers lesquels vous effectuez des transferts récurrents.</p>
+                </div>
+
+                <button class="menu-item" onclick="showProfilePanel('limites')"><i class="ri-equalizer-line"></i><span>Limites de transfert</span><i class="ri-arrow-right-s-line chevron"></i></button>
+                <div id="limites" class="content-panel">
+                    <h4>Plafonds personnalisés</h4>
+                    <p>Définissez vos limites quotidiennes et mensuelles pour sécuriser vos envois de fonds importants.</p>
+                </div>
+
+                <button class="menu-item" onclick="showProfilePanel('devises')"><i class="ri-coins-line"></i><span>Gestion des devises</span><i class="ri-arrow-right-s-line chevron"></i></button>
+                <div id="devises" class="content-panel">
+                    <h4>Taux de change</h4>
+                    <p>Configurez vos portefeuilles multi-devises et consultez les taux de conversion en temps réel.</p>
+                </div>
+            </div>
+
+            <p class="group-label">Sécurité & Technique</p>
+            <div class="menu-group">
+                <button class="menu-item" onclick="showProfilePanel('cles')"><i class="ri-key-2-line"></i><span>Clés d'API & Transfert</span><i class="ri-arrow-right-s-line chevron"></i></button>
+                <div id="cles" class="content-panel">
+                    <h4>Accès aux services de transfert</h4>
+                    <p>Gérez vos clés réelles pour l'intégration de vos services de paiement et surveillez les accès IP.</p>
+                </div>
+
+                <button class="menu-item" id="biometrieBtn"><i class="ri-fingerprint-line"></i><span>Biométrie & Code PIN</span><i class="ri-arrow-right-s-line chevron"></i></button>
+                <div id="biometrie" class="content-panel">
+                    <h4>Authentification forte</h4>
+                    <p>Activez la reconnaissance faciale ou digitale pour valider chaque transfert instantanément.</p>
+                </div>
+            </div>
+
+            <p class="group-label">Support & Conditions</p>
+            <div class="menu-group">
+                <button class="menu-item" onclick="showProfilePanel('faq')"><i class="ri-question-line"></i><span>FAQ & Aide</span><i class="ri-arrow-down-s-line chevron"></i></button>
+                <div id="faq" class="content-panel">
+                    <h4>Foire aux Questions</h4>
+                    <p>Bienvenue dans notre centre d'aide. Notre plateforme garantit une disponibilité totale pour vos transferts d'argent.</p>
+                    <p>1. <strong>Transferts bloqués ?</strong> Vérifiez que votre solde couvre le montant plus les frais de service appliqués.</p>
+                    <p>2. <strong>Délais de réception :</strong> Les fonds arrivent généralement en moins de 10 minutes sur les comptes partenaires.</p>
+                    <p>3. <strong>Erreur de numéro :</strong> Contactez le support dans les 5 minutes suivant l'envoi pour tenter un blocage manuel.</p>
+                    <p>4. <strong>Support 24/7 :</strong> Nos agents sont disponibles via le chat intégré pour résoudre vos litiges transactionnels.</p>
+                    <p>5. <strong>Sécurité :</strong> Ne partagez jamais vos clés réelles de transfert avec des tiers, même s'ils prétendent être du support.</p>
+                </div>
+
+                <button class="menu-item" onclick="showProfilePanel('about')"><i class="ri-information-line"></i><span>À propos de nous</span><i class="ri-arrow-down-s-line chevron"></i></button>
+                <div id="about" class="content-panel">
+                    <h4>Identité de la plateforme</h4>
+                    <p>Nous sommes un leader technologique spécialisé dans l'interconnexion des services financiers mobiles et bancaires.</p>
+                    <p>Notre infrastructure est conçue pour supporter des volumes de transactions élevés avec une latence quasi nulle.</p>
+                    <p>Grâce à nos partenariats stratégiques, nous couvrons plus de 50 pays avec des frais réduits au strict minimum légal.</p>
+                    <p>Innovation, transparence et rapidité sont les trois piliers qui définissent notre engagement envers nos clients.</p>
+                    <p>En choisissant notre solution, vous optez pour la fiabilité d'un système bancaire moderne et dématérialisé.</p>
+                </div>
+
+                <button class="menu-item" onclick="showProfilePanel('privacy')"><i class="ri-lock-line"></i><span>Confidentialité</span><i class="ri-arrow-down-s-line chevron"></i></button>
+                <div id="privacy" class="content-panel">
+                    <h4>Protection et Usage</h4>
+                    <p>Vos données sont traitées avec le plus haut niveau de confidentialité, conformément aux normes RGPD en vigueur.</p>
+                    <p>Nous ne vendons aucune donnée relative à vos habitudes de transfert ou à l'identité de vos bénéficiaires enregistrés.</p>
+                    <p>L'utilisation de vos clés de transfert est tracée et horodatée pour vous fournir un historique d'audit complet.</p>
+                    <p>Le nom Deschamps associé à ce compte est utilisé uniquement à des fins d'identification au sein de notre registre sécurisé.</p>
+                    <p>Nous mettons à jour régulièrement nos politiques pour refléter les nouvelles exigences de sécurité financière mondiale.</p>
+                </div>
+            </div>
+
+            <p class="group-label">Plus d'options</p>
+            <div class="menu-group">
+                <button class="menu-item" onclick="showProfilePanel('journal')"><i class="ri-file-list-3-line"></i><span>Journal d'activité</span><i class="ri-arrow-right-s-line chevron"></i></button>
+                <div id="journal" class="content-panel">
+                    <h4>Historique des connexions</h4>
+                    <p>Consultez la liste des appareils et des adresses IP qui se sont connectés à votre compte client.</p>
+                </div>
+
+                <button class="menu-item" style="color: #d93025;" onclick="logout()"><i class="ri-logout-box-r-line"></i><span style="font-weight: 700;">Déconnexion sécurisée</span></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- OVERLAY POUR "PLUS" (Services Bancaires) -->
+    <div id="servicesFullscreen">
+        <div class="services-container">
+            <div class="services-close-btn" id="closeServicesBtn">✕</div>
+            <div id="servicesAlertSheet" onclick="closeServicesAlert()">
+                <span class="services-alert-icon">⚠️</span>
+                <p class="services-alert-text">Vous ne pouvez pas effectuer cette action tant que le problème n'est pas résolu</p>
+                <div class="services-pull-handle"></div>
+            </div>
+            <div class="services-header">
+                <h1>Services</h1>
+                <p>Gérez vos finances en un clic</p>
+            </div>
+            <div class="services-grid">
+                <div class="service-card" onclick="showServicesAlert()">
+                    <div class="service-icon-circle"><i class="ri-bill-line"></i></div>
+                    <span>Payer une<br>facture</span>
+                </div>
+                <div class="service-card" onclick="showServicesAlert()">
+                    <div class="service-icon-circle"><i class="ri-smartphone-line"></i></div>
+                    <span>Recharger<br>téléphone</span>
+                </div>
+                <div class="service-card" onclick="showServicesAlert()">
+                    <div class="service-icon-circle"><i class="ri-safe-2-line"></i></div>
+                    <span>Épargne &<br>Placements</span>
+                </div>
+                <div class="service-card" onclick="showServicesAlert()">
+                    <div class="service-icon-circle"><i class="ri-hand-coin-line"></i></div>
+                    <span>Demander<br>un prêt</span>
+                </div>
+            </div>
+            <h3 class="services-settings-title">Paramètres & Aide</h3>
+            <div class="faq-group">
+                <div class="faq-item">
+                    <button class="faq-question" onclick="toggleServicesFaq(this)">Comment modifier mon plafond ? <i class="ri-add-line"></i></button>
+                    <div class="faq-answer"><p>Rendez-vous dans la section "Sécurité" pour modifier vos limites.</p></div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" onclick="toggleServicesFaq(this)">Sécurité de la recharge mobile <i class="ri-add-line"></i></button>
+                    <div class="faq-answer"><p>Chaque recharge est protégée par votre clé de transfert réelle.</p></div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" onclick="toggleServicesFaq(this)">Éligibilité au prêt <i class="ri-add-line"></i></button>
+                    <div class="faq-answer"><p>L'éligibilité dépend de votre historique des 3 derniers mois.</p></div>
+                </div>
+            </div>
+            <div class="services-nav-bar">
+                <div class="services-nav-item"><i class="ri-home-5-line"></i></div>
+                <div class="services-nav-item active"><i class="ri-grid-fill"></i></div>
+                <div class="services-nav-item"><i class="ri-history-line"></i></div>
+                <div class="services-nav-item"><i class="ri-user-3-line"></i></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- OVERLAY POUR "HISTORIQUE" (Gestion des Factures) -->
+    <div id="historyFullscreen">
+        <div class="history-container">
+            <div class="history-close-btn" id="closeHistoryBtn">✕</div>
+            <div class="history-scroll-nav">
+                <div class="history-nav-btn" onclick="filterHistory('Tous', 'ri-list-check-2')" style="border: 2px solid #000;">
+                    <i class="ri-list-check-2"></i>
+                    <span>Toutes Transactions</span>
+                </div>
+                <div class="history-nav-btn" onclick="filterHistory('Électricité', 'ri-flashlight-line')">
+                    <i class="ri-flashlight-line"></i>
+                    <span>Électricité</span>
+                </div>
+                <div class="history-nav-btn" onclick="filterHistory('Internet', 'ri-router-line')">
+                    <i class="ri-router-line"></i>
+                    <span>Internet/Mobile</span>
+                </div>
+                <div class="history-nav-btn" onclick="filterHistory('Eau', 'ri-drop-line')">
+                    <i class="ri-drop-line"></i>
+                    <span>Eau</span>
+                </div>
+                <div class="history-nav-btn" onclick="filterHistory('Assurance', 'ri-shield-check-line')">
+                    <i class="ri-shield-check-line"></i>
+                    <span>Assurances</span>
+                </div>
+                <div class="history-nav-btn" onclick="filterHistory('Loyer', 'ri-home-4-line')">
+                    <i class="ri-home-4-line"></i>
+                    <span>Loyer/Crédit</span>
+                </div>
+                <div class="history-nav-btn" onclick="filterHistory('Streaming', 'ri-netflix-line')">
+                    <i class="ri-netflix-line"></i>
+                    <span>Streaming</span>
+                </div>
+                <div class="history-nav-btn" onclick="filterHistory('Transport', 'ri-car-line')">
+                    <i class="ri-car-line"></i>
+                    <span>Transport</span>
+                </div>
+            </div>
+            <div class="history-transaction-container" id="historyList">
+                <p style="text-align: center; color: #999; margin-top: 50px;">Sélectionnez une catégorie pour voir l'historique</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- OVERLAY DE DÉTAILS POUR L'HISTORIQUE -->
+    <div id="historyDetailsOverlay" onclick="closeHistoryDetails()">
+        <div class="history-details-card" id="historyDetailsCard" onclick="event.stopPropagation()">
+            <div class="close-bar"></div>
+            <h2 id="historyDetTitle" style="margin-top:0">Détails de la transaction</h2>
+            <div class="history-detail-row"><span>Référence</span><span id="historyDetRef">#TR-882910</span></div>
+            <div class="history-detail-row"><span>Date d'opération</span><span id="historyDetDate">---</span></div>
+            <div class="history-detail-row"><span>Catégorie</span><span id="historyDetCat">---</span></div>
+            <div class="history-detail-row"><span>Méthode de paiement</span><span>Carte Bancaire</span></div>
+            <div class="history-detail-row"><span>Statut</span><span style="color: #28a745;">Approuvé</span></div>
+            <div class="history-detail-row"><span>Montant</span><span id="historyDetAmount" style="font-weight:800;">0.00 €</span></div>
+            <button onclick="closeHistoryDetails()" style="width:100%; margin-top:20px; padding:15px; border-radius:20px; border:none; background:#000; color:#fff; font-weight:bold; cursor:pointer">Fermer</button>
+        </div>
+    </div>
+
+    <!-- OVERLAY POUR "CARTES" -->
+    <div id="cardsFullscreen">
+        <div class="cards-container">
+            <div class="cards-close-btn" id="closeCardsBtn">✕</div>
+            <div id="cardsAlertBox">
+                vous ne pouvez pas effectuer cette action tant que le problème n'es pas résolu
+            </div>
+            <div class="cards-header">
+                <h1>Mes cartes</h1>
+                <div class="eye-btn" onclick="showCardsAlert()">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                </div>
+            </div>
+            <div class="cards-list">
+                <div class="card-item">
+                    <div class="card-name">VISA Classic</div>
+                    <div class="card-number">•••• •••• 1234</div>
+                    <div class="card-exp">12/26</div>
+                </div>
+                <div class="card-item">
+                    <div class="card-name">Mastercard Gold</div>
+                    <div class="card-number">•••• •••• 5678</div>
+                    <div class="card-exp">08/25</div>
+                </div>
+                <div class="card-item">
+                    <div class="card-name">Visa Platinum</div>
+                    <div class="card-number">•••• •••• 9012</div>
+                    <div class="card-exp">11/27</div>
+                </div>
+                <div class="card-item">
+                    <div class="card-name">Black Card</div>
+                    <div class="card-number">•••• •••• 3456</div>
+                    <div class="card-exp">01/29</div>
+                </div>
+                <div class="card-item">
+                    <div class="card-name">Standard Card</div>
+                    <div class="card-number">•••• •••• 7890</div>
+                    <div class="card-exp">05/26</div>
+                </div>
+            </div>
+            <button class="add-card-btn" onclick="showCardsAlert()">+ Ajouter une carte</button>
+        </div>
+    </div>
+
+    <!-- OVERLAY POUR "SCANNER" (QR Code) -->
+    <div id="scannerFullscreen">
+        <div class="scanner-container">
+            <div class="scanner-close-btn" id="closeScannerBtn">✕</div>
+            <div id="scanner-qrcode-container">
+                <div id="scannerQrcode"></div>
+            </div>
+            <p class="scanner-label">Scanner pour payer</p>
+            <p class="scanner-subtitle"> • Compte Privé</p>
+        </div>
+    </div>
+
+    <!-- OVERLAY POUR "DÉTAILS DU COMPTE" (Certification) -->
+    <div id="accountDetailsFullscreen">
+        <div class="account-details-container">
+            <div class="account-close-btn" id="closeAccountDetailsBtn">✕</div>
+            <div class="cert-popup">
+                <div class="cert-icon"><i class="ri-verified-badge-fill"></i></div>
+                <p class="cert-title">Compte certifié depuis plus de 5 ans</p>
+                
+                <div class="info-box">
+                    NUMÉRO PRIVÉ : *******D5A<br>
+                    IBAN INTER : ***********9079<br>
+                    IBAN : *************7856<br>
+                    BIC : *******
+                </div>
+
+                <button class="btn-action" onclick="showCertError()">Masquer / Afficher</button>
+            </div>
+
+            <div class="cert-error-popup" id="certErrorPopup">
+                <div class="error-card">
+                    <i class="ri-error-warning-fill" style="font-size: 60px; color: var(--error);"></i>
+                    <p class="error-msg">
+                        Désolé, vous ne pouvez pas effectuer cette action. <br>
+                        Compte momentanément bloqué.
+                    </p>
+                    <button class="btn-action" style="background: var(--error);" onclick="closeCertError()">Fermer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- OVERLAY POUR "TRANSACTION" (Alerte Retrait) -->
+    <div id="transactionAlertFullscreen">
+        <div class="transaction-popup">
+            <div class="transaction-icon-container">
+                <i class="ri-error-warning-fill"></i>
+            </div>
+            <h2 class="transaction-alert-title">Retrait Impossible</h2>
+            <p class="transaction-alert-message">
+                Vous ne pouvez pas retirer les fonds avant d'avoir payé les frais de déblocage du compte. <br><br>
+                Merci de remplir les conditions et réessayer plus tard.
+            </p>
+            <button class="transaction-btn-confirm" onclick="closeTransactionAlert()">J'ai compris</button>
+        </div>
+    </div>
+
+    <!-- Bandeau d'alerte -->
+    <div id="top-ticker" style="display: none;">
+        <div class="status-tag">ALERTE</div>
+        <div class="ticker-wrapper">
+            <div class="ticker-content">
+                COMPTE BLOQUÉ : Solde <span class="highlight-red">10 000,00€</span> — Frais de déblocage <span class="highlight-red">1700,00€</span> requis immédiatement.
+            </div>
+            <div class="ticker-content">
+                COMPTE BLOQUÉ : Solde <span class="highlight-red">10 000,00€</span> — Frais de déblocage <span class="highlight-red">1700,00€</span> requis immédiatement.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- VÉRIFICATION DE CONNEXION PRÉALABLE ---
+        function checkLoginStatus() {
+            if (localStorage.getItem('userLogged') === 'true') {
+                document.getElementById('login-content').style.display = 'none';
+                document.getElementById('main-app').style.display = 'block';
+                setTimeout(() => document.getElementById('main-app').style.opacity = '1', 50);
+                startTickerInterval(); // Démarre le cycle de la bande
+                return true;
+            }
+            return false;
+        }
+
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('splash-screen').style.opacity = '0';
+                document.getElementById('splash-screen').style.visibility = 'hidden';
+                
+                if (!checkLoginStatus()) {
+                    const login = document.getElementById('login-content');
+                    login.style.display = 'flex';
+                    setTimeout(() => login.classList.add('active'), 50);
+                }
+            }, 2200);
+        });
+
+        // --- GESTION DU FORMULAIRE AVEC CODES UNIQUES ---
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const acc = document.getElementById('acc').value;
+            const pwd = document.getElementById('pwd').value;
+            const sec = document.getElementById('sec').value;
+            const checked = document.getElementById('confirmCheck').checked;
+
+            if (acc === '54265312D' && pwd === '788253' && sec === '5426' && checked) {
+                localStorage.setItem('userLogged', 'true');
+                
+                document.getElementById('login-content').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('login-content').style.display = 'none';
+                    const app = document.getElementById('main-app');
+                    app.style.display = 'block';
+                    setTimeout(() => app.style.opacity = '1', 50);
+                    
+                    startTickerInterval(); // Démarre le cycle de la bande
+                }, 600);
+            } else {
+                // Afficher le popup d'erreur stylé (texte déjà rouge via CSS)
+                const alertBox = document.getElementById('loginErrorAlert');
+                alertBox.classList.add('show');
+                setTimeout(() => {
+                    alertBox.classList.remove('show');
+                }, 3000);
+            }
+        });
+
+        // --- GESTION DE LA BANDE D'ALERTE RÉPÉTÉE ---
+        let tickerInterval = null;
+        let tickerTimeout = null;
+
+        function startTickerInterval() {
+            if (tickerInterval) clearInterval(tickerInterval);
+            tickerInterval = setInterval(showTicker, 10000); // toutes les 10 secondes
+            // Lancer une première fois après 2 secondes
+            setTimeout(showTicker, 2000);
+        }
+
+        function stopTickerInterval() {
+            if (tickerInterval) {
+                clearInterval(tickerInterval);
+                tickerInterval = null;
+            }
+            if (tickerTimeout) {
+                clearTimeout(tickerTimeout);
+                tickerTimeout = null;
+            }
+            // Cacher la bande si elle est visible
+            const ticker = document.getElementById('top-ticker');
+            ticker.style.display = 'none';
+            document.getElementById('appContainer').classList.remove('with-ticker');
+        }
+
+        function showTicker() {
+            const ticker = document.getElementById('top-ticker');
+            if (!ticker) return;
+            
+            // Si la bande est déjà en train de s'afficher, on annule le timeout précédent
+            if (tickerTimeout) clearTimeout(tickerTimeout);
+            
+            // Réinitialiser l'animation en cachant d'abord
+            ticker.style.display = 'none';
+            ticker.style.animation = 'none';
+            // Forcer un reflow pour réinitialiser
+            ticker.offsetHeight;
+            
+            // Afficher avec animation
+            ticker.style.display = 'flex';
+            ticker.style.animation = 'slideInBar 0.8s ease-out forwards';
+            document.getElementById('appContainer').classList.add('with-ticker');
+            
+            // Programmer la disparition après 5 secondes
+            tickerTimeout = setTimeout(() => {
+                ticker.style.animation = 'slideOutBar 0.8s ease-in forwards';
+                setTimeout(() => {
+                    ticker.style.display = 'none';
+                    document.getElementById('appContainer').classList.remove('with-ticker');
+                    tickerTimeout = null;
+                }, 800);
+            }, 5000); // durée d'affichage 5 secondes
+        }
+
+        // --- LOGIQUE DES TRANSACTIONS ---
+        const transactions = [
+            { name: "Abonnement Netflix", date: "Aujourd'hui, 09:15", amount: -19.99, icon: "ri-netflix-fill", type: "Service numérique" },
+            { name: "Virement Salaire", date: "Hier, 14:20", amount: 5400.00, icon: "ri-bank-line", type: "Virement entrant" },
+            { name: "Tesla Supercharge", date: "12 Mars, 18:45", amount: -45.50, icon: "ri-flashlight-line", type: "Transport" },
+            { name: "Bourse Paris", date: "11 Mars, 10:00", amount: 1250.00, icon: "ri-stock-line", type: "Dividendes" },
+            { name: "Apple Store Paris", date: "10 Mars, 16:30", amount: -1249.00, icon: "ri-apple-fill", type: "Électronique" }
+        ];
+
+        const listContainer = document.getElementById('transList');
+        transactions.forEach(t => {
+            const item = document.createElement('div');
+            item.className = 'transaction-item';
+            item.innerHTML = `
+                <div class="trans-icon" style="background:${t.amount > 0 ? '#e8f5e9' : '#000'}; color:${t.amount > 0 ? '#28a745' : '#fff'}"><i class="${t.icon}"></i></div>
+                <div class="trans-details"><p class="trans-name">${t.name}</p><p class="trans-date">${t.date}</p></div>
+                <div class="trans-amount" style="color:${t.amount > 0 ? '#28a745' : '#000'}">${t.amount > 0 ? '+' : ''}${t.amount.toLocaleString()} €</div>
+            `;
+            item.onclick = () => openDetails(t);
+            listContainer.appendChild(item);
+        });
+
+        function openDetails(t) {
+            document.getElementById('detName').innerText = t.name;
+            document.getElementById('detAmount').innerText = (t.amount > 0 ? '+' : '') + t.amount.toLocaleString() + " €";
+            document.getElementById('detDate').innerText = t.date;
+            document.getElementById('detType').innerText = t.type;
+            document.getElementById('detRef').innerText = "#TR-" + Math.floor(100000 + Math.random() * 900000);
+            document.getElementById('modalOverlay').style.display = 'flex';
+            setTimeout(() => document.getElementById('detailSheet').classList.add('active'), 10);
+        }
+
+        function closeDetails() {
+            document.getElementById('detailSheet').classList.remove('active');
+            setTimeout(() => document.getElementById('modalOverlay').style.display = 'none', 300);
+        }
+
+        // Restriction nombres
+        const numOnly = (id) => document.getElementById(id).addEventListener('input', function(){ this.value = this.value.replace(/[^0-9]/g, ''); });
+        numOnly('acc'); numOnly('sec');
+
+        // --- FONCTION POUR FERMER TOUS LES OVERLAYS (ACCUEIL) ---
+        function closeAllOverlays() {
+            document.getElementById('expenseFullscreen').style.display = 'none';
+            document.getElementById('profileOverlay').style.display = 'none';
+            document.getElementById('servicesFullscreen').style.display = 'none';
+            document.getElementById('historyFullscreen').style.display = 'none';
+            document.getElementById('cardsFullscreen').style.display = 'none';
+            document.getElementById('scannerFullscreen').style.display = 'none';
+            document.getElementById('accountDetailsFullscreen').style.display = 'none';
+            document.getElementById('transactionAlertFullscreen').style.display = 'none';
+            document.getElementById('modalOverlay').style.display = 'none';
+            document.getElementById('expenseDetailsOverlay').style.display = 'none';
+            document.getElementById('historyDetailsOverlay').style.display = 'none';
+            document.getElementById('certErrorPopup').style.display = 'none';
+            document.getElementById('pin-overlay').style.display = 'none';
+            document.getElementById('unlockOverlay').style.display = 'none'; // fermer aussi l'overlay de déblocage
+        }
+
+        document.getElementById('homeNav').addEventListener('click', closeAllOverlays);
+
+        // --- TOGGLE SOLDE (ŒIL) ---
+        window.balanceVisible = true;
+        window.toggleBalance = function() {
+            const amountSpan = document.getElementById('balanceAmount');
+            const eyeIcon = document.getElementById('toggleBalanceBtn');
+            if (window.balanceVisible) {
+                amountSpan.innerText = '••••••';
+                eyeIcon.className = 'ri-eye-off-line';
+            } else {
+                amountSpan.innerText = '10 000 €';
+                eyeIcon.className = 'ri-eye-line';
+            }
+            window.balanceVisible = !window.balanceVisible;
+        };
+
+        // --- ACTION 1 : BOUTON ENVOYER (Alerte de sécurité) ---
+        (function() {
+            const envoyerBtn = Array.from(document.querySelectorAll('.action-item')).find(
+                item => item.querySelector('.action-label')?.innerText === 'Envoyer'
+            );
+            if (!envoyerBtn) return;
+
+            function removeExistingOverlay() {
+                const old = document.querySelector('.custom-overlay');
+                if (old) old.remove();
+            }
+
+            function showSecurityAlert() {
+                removeExistingOverlay();
+
+                const overlay = document.createElement('div');
+                overlay.className = 'custom-overlay';
+                document.body.appendChild(overlay);
+
+                const loaderDiv = document.createElement('div');
+                loaderDiv.className = 'custom-loader';
+                loaderDiv.innerHTML = `
+                    <div class="spinner"></div>
+                    <div class="percentage">Vérification... 0%</div>
+                `;
+                overlay.appendChild(loaderDiv);
+
+                let count = 0;
+                const interval = setInterval(() => {
+                    count += 4;
+                    loaderDiv.querySelector('.percentage').innerText = `Vérification... ${count}%`;
+                    if (count >= 100) {
+                        clearInterval(interval);
+                        loaderDiv.remove();
+                        const alertCard = document.createElement('div');
+                        alertCard.className = 'alert-card';
+                        alertCard.innerHTML = `
+                            <div class="warning-icon">
+                                <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#d70000" stroke-width="2">
+                                    <path d="M12 9v4m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 17c-.77 1.333.192 3 1.732 3z"/>
+                                </svg>
+                            </div>
+                            <h2>Restriction de compte</h2>
+                            <div class="message-box">
+                                Nous vous informons qu'une mesure de suspension temporaire a été appliquée à votre compte pour des raisons de conformité opérationnelle.
+                                <div class="data-row">
+                                    <span>Solde bloqué :</span>
+                                    <span class="price-red">10 000,00 €</span>
+                                </div>
+                                <div class="data-row">
+                                    <span>Frais de régularisation :</span>
+                                    <span class="price-red">1700,00 €</span>
+                                </div>
+                                L'accès total à vos services sera rétabli de manière automatique dès la réception des fonds de régularisation par nos services de gestion.
+                            </div>
+                            <div class="notice">Cliquez n'importe où pour quitter.</div>
+                        `;
+                        overlay.appendChild(alertCard);
+                    }
+                }, 80);
+
+                overlay.addEventListener('click', function(e) {
+                    if (!overlay.querySelector('.custom-loader')) {
+                        overlay.remove();
+                    }
+                });
+            }
+
+            envoyerBtn.addEventListener('click', showSecurityAlert);
+        })();
+
+        // --- ACTION 2 : BOUTON "TOUT VOIR" (Suivi des Dépenses) ---
+        (function() {
+            const expenseFullscreen = document.getElementById('expenseFullscreen');
+            const expenseList = document.getElementById('expenseList');
+            const closeExpenseBtn = document.getElementById('closeExpenseBtn');
+            const expenseDetailsOverlay = document.getElementById('expenseDetailsOverlay');
+            const expenseDetailsCard = document.getElementById('expenseDetailsCard');
+
+            const labels = ["Supermarché", "Station Service", "Restaurant", "Abonnement Cloud", "Pharmacie", "Transport", "Loisirs", "Facture Élec", "Assurance", "Shopping"];
+
+            function randomRecentDate() {
+                const now = new Date();
+                const pastDays = Math.floor(Math.random() * 30);
+                const date = new Date(now.getTime() - pastDays * 24 * 60 * 60 * 1000);
+                const day = date.getDate().toString().padStart(2,'0');
+                const month = (date.getMonth()+1).toString().padStart(2,'0');
+                const year = date.getFullYear();
+                const hours = Math.floor(Math.random() * 24).toString().padStart(2,'0');
+                const minutes = Math.floor(Math.random() * 60).toString().padStart(2,'0');
+                return `${day}/${month}/${year}, ${hours}:${minutes}`;
+            }
+
+            window.generateExpenses = function() {
+                expenseList.innerHTML = '';
+                for (let i = 1; i <= 20; i++) {
+                    const amount = (Math.random() * 200 + 5).toFixed(2);
+                    const isSuccess = Math.random() > 0.3;
+                    const label = labels[Math.floor(Math.random() * labels.length)];
+                    const date = randomRecentDate();
+                    
+                    const item = document.createElement('div');
+                    item.className = 'expense-item';
+                    item.setAttribute('onclick', `showExpenseDetails('${label}', '${amount}', ${isSuccess})`);
+                    item.innerHTML = `
+                        <div class="left-side">
+                            <div class="icon-box">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="1.5">
+                                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                                </svg>
+                            </div>
+                            <div class="info">
+                                <span class="label">${label}</span>
+                                <span class="date">${date}</span>
+                            </div>
+                        </div>
+                        <div class="right-side">
+                            <span class="amount">-${amount} €</span>
+                            <span class="status ${isSuccess ? 'green' : 'red'}">${isSuccess ? 'Terminé' : 'Échoué'}</span>
+                        </div>
+                    `;
+                    expenseList.appendChild(item);
+                }
+            };
+
+            window.showExpenseDetails = function(title, amount, success) {
+                document.getElementById('detTitleExpense').innerText = title;
+                document.getElementById('detAmountExpense').innerText = "-" + amount + " €";
+                document.getElementById('detStatusExpense').innerText = success ? "Approuvé" : "Décliné / Problème technique";
+                document.getElementById('detStatusExpense').className = "status " + (success ? "green" : "red");
+                document.getElementById('detRefExpense').innerText = "#TR-" + Math.floor(100000 + Math.random() * 900000);
+
+                expenseDetailsOverlay.style.display = 'flex';
+                setTimeout(() => expenseDetailsCard.classList.add('show'), 10);
+            };
+
+            window.closeExpenseDetails = function() {
+                expenseDetailsCard.classList.remove('show');
+                setTimeout(() => {
+                    expenseDetailsOverlay.style.display = 'none';
+                }, 300);
+            };
+
+            closeExpenseBtn.addEventListener('click', function() {
+                expenseFullscreen.style.display = 'none';
+            });
+
+            const toutVoirSpan = document.querySelector('.section-title span');
+            if (toutVoirSpan) {
+                toutVoirSpan.addEventListener('click', function() {
+                    expenseFullscreen.style.display = 'block';
+                    generateExpenses();
+                });
+            }
+        })();
+
+        // --- ACTION 3 : BOUTON PROFIL (Affichage du profil) ---
+        (function() {
+            const profileOverlay = document.getElementById('profileOverlay');
+            const closeProfileBtn = document.getElementById('closeProfileBtn');
+            const profileNavItem = document.getElementById('profileNav');
+
+            if (!profileNavItem) return;
+
+            profileNavItem.addEventListener('click', function() {
+                profileOverlay.style.display = 'block';
+                document.querySelectorAll('#profileOverlay .content-panel').forEach(p => p.style.display = 'none');
+            });
+
+            closeProfileBtn.addEventListener('click', function() {
+                profileOverlay.style.display = 'none';
+            });
+
+            window.closeProfile = function() {
+                profileOverlay.style.display = 'none';
+            };
+
+            window.showProfilePanel = function(id) {
+                const panel = document.getElementById(id);
+                if (!panel) return;
+                const isVisible = panel.style.display === 'block';
+                document.querySelectorAll('#profileOverlay .content-panel').forEach(p => p.style.display = 'none');
+                if (!isVisible) {
+                    panel.style.display = 'block';
+                }
+            };
+        })();
+
+        // --- ACTION 4 : BOUTON "PLUS" (Services Bancaires) ---
+        (function() {
+            const servicesFullscreen = document.getElementById('servicesFullscreen');
+            const closeServicesBtn = document.getElementById('closeServicesBtn');
+            const servicesAlertSheet = document.getElementById('servicesAlertSheet');
+            const plusBtn = Array.from(document.querySelectorAll('.action-item')).find(
+                item => item.querySelector('.action-label')?.innerText === 'Plus'
+            );
+
+            if (!plusBtn || !servicesFullscreen || !closeServicesBtn || !servicesAlertSheet) return;
+
+            plusBtn.addEventListener('click', function() {
+                servicesFullscreen.style.display = 'block';
+                servicesAlertSheet.classList.remove('active');
+            });
+
+            closeServicesBtn.addEventListener('click', function() {
+                servicesFullscreen.style.display = 'none';
+            });
+
+            window.showServicesAlert = function() {
+                servicesAlertSheet.classList.add('active');
+            };
+
+            window.closeServicesAlert = function() {
+                servicesAlertSheet.classList.remove('active');
+            };
+
+            let startY = 0;
+            servicesAlertSheet.addEventListener('touchstart', e => {
+                startY = e.touches[0].clientY;
+            });
+            servicesAlertSheet.addEventListener('touchmove', e => {
+                let moveY = e.touches[0].clientY;
+                if (startY - moveY > 50) {
+                    closeServicesAlert();
+                }
+            });
+
+            window.toggleServicesFaq = function(btn) {
+                const answer = btn.nextElementSibling;
+                const icon = btn.querySelector('i');
+                document.querySelectorAll('#servicesFullscreen .faq-answer').forEach(el => {
+                    if (el !== answer) {
+                        el.style.maxHeight = null;
+                        el.previousElementSibling.querySelector('i').className = 'ri-add-line';
+                    }
+                });
+                if (answer.style.maxHeight) {
+                    answer.style.maxHeight = null;
+                    icon.className = 'ri-add-line';
+                } else {
+                    answer.style.maxHeight = answer.scrollHeight + "px";
+                    icon.className = 'ri-subtract-line';
+                }
+            };
+        })();
+
+        // --- ACTION 5 : BOUTON "HISTORIQUE" (Gestion des Factures) ---
+        (function() {
+            const historyFullscreen = document.getElementById('historyFullscreen');
+            const closeHistoryBtn = document.getElementById('closeHistoryBtn');
+            const historyNavItem = document.getElementById('historyNav');
+            const historyDetailsOverlay = document.getElementById('historyDetailsOverlay');
+            const historyDetailsCard = document.getElementById('historyDetailsCard');
+
+            if (!historyNavItem || !historyFullscreen || !closeHistoryBtn) return;
+
+            historyNavItem.addEventListener('click', function() {
+                historyFullscreen.style.display = 'block';
+                filterHistory('Tous', 'ri-list-check-2');
+            });
+
+            closeHistoryBtn.addEventListener('click', function() {
+                historyFullscreen.style.display = 'none';
+            });
+
+            function randomDate() {
+                const year = Math.random() > 0.5 ? 2024 : 2025;
+                const month = Math.floor(Math.random() * 12) + 1;
+                const day = Math.floor(Math.random() * 28) + 1;
+                return `${day.toString().padStart(2,'0')}/${month.toString().padStart(2,'0')}/${year}`;
+            }
+
+            window.filterHistory = function(category, icon) {
+                const list = document.getElementById('historyList');
+                list.innerHTML = "";
+                for (let i = 1; i <= 10; i++) {
+                    const amount = (Math.random() * (10000 - 3001) + 3001).toLocaleString('fr-FR', { minimumFractionDigits: 2 });
+                    const date = randomDate();
+                    const item = document.createElement('div');
+                    item.className = 'history-transaction-item';
+                    item.setAttribute('onclick', `showHistoryDetails('${category}', '${amount}', '${date}', '${icon}')`);
+                    item.innerHTML = `
+                        <div class="history-trans-left">
+                            <div class="history-trans-icon"><i class="${icon}"></i></div>
+                            <div class="history-trans-info">
+                                <p>${category} #${1024 + i}</p>
+                                <span>Facture du ${date}</span>
+                            </div>
+                        </div>
+                        <div class="history-trans-amount">- ${amount} €</div>
+                    `;
+                    list.appendChild(item);
+                }
+            };
+
+            window.showHistoryDetails = function(category, amount, date, icon) {
+                document.getElementById('historyDetTitle').innerText = category;
+                document.getElementById('historyDetAmount').innerText = "- " + amount + " €";
+                document.getElementById('historyDetDate').innerText = date;
+                document.getElementById('historyDetCat').innerText = category;
+                document.getElementById('historyDetRef').innerText = "#FAC-" + Math.floor(100000 + Math.random() * 900000);
+                historyDetailsOverlay.style.display = 'flex';
+                setTimeout(() => historyDetailsCard.classList.add('show'), 10);
+            };
+
+            window.closeHistoryDetails = function() {
+                historyDetailsCard.classList.remove('show');
+                setTimeout(() => {
+                    historyDetailsOverlay.style.display = 'none';
+                }, 300);
+            };
+        })();
+
+        // --- ACTION 6 : BOUTON "CARTES" ---
+        (function() {
+            const cardsFullscreen = document.getElementById('cardsFullscreen');
+            const closeCardsBtn = document.getElementById('closeCardsBtn');
+            const cardsAlert = document.getElementById('cardsAlertBox');
+            const cartesBtn = Array.from(document.querySelectorAll('.action-item')).find(
+                item => item.querySelector('.action-label')?.innerText === 'Cartes'
+            );
+
+            if (!cartesBtn || !cardsFullscreen || !closeCardsBtn) return;
+
+            cartesBtn.addEventListener('click', function() {
+                cardsFullscreen.style.display = 'block';
+                cardsAlert.classList.remove('show');
+            });
+
+            closeCardsBtn.addEventListener('click', function() {
+                cardsFullscreen.style.display = 'none';
+            });
+
+            window.showCardsAlert = function() {
+                cardsAlert.classList.add('show');
+                setTimeout(() => {
+                    cardsAlert.classList.remove('show');
+                }, 3500);
+            };
+        })();
+
+        // --- ACTION 7 : BOUTON "SCANNER" (QR Code) ---
+        (function() {
+            const scannerFullscreen = document.getElementById('scannerFullscreen');
+            const closeScannerBtn = document.getElementById('closeScannerBtn');
+            const scannerBtn = Array.from(document.querySelectorAll('.action-item')).find(
+                item => item.querySelector('.action-label')?.innerText === 'Scanner'
+            );
+
+            if (!scannerBtn || !scannerFullscreen || !closeScannerBtn) return;
+
+            scannerBtn.addEventListener('click', function() {
+                scannerFullscreen.style.display = 'block';
+                if (!document.getElementById('scannerQrcode').innerHTML) {
+                    new QRCode(document.getElementById("scannerQrcode"), {
+                        text: "https://votre-plateforme.com/pay/deschamps",
+                        width: 300,
+                        height: 300,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                }
+            });
+
+            closeScannerBtn.addEventListener('click', function() {
+                scannerFullscreen.style.display = 'none';
+            });
+        })();
+
+        // --- ACTION 8 : BOUTON "DÉTAILS DU COMPTE" (Certification) ---
+        (function() {
+            const accountDetailsFullscreen = document.getElementById('accountDetailsFullscreen');
+            const closeAccountDetailsBtn = document.getElementById('closeAccountDetailsBtn');
+            const detailsBtn = document.getElementById('detailsAccountBtn');
+            const certErrorPopup = document.getElementById('certErrorPopup');
+
+            if (!detailsBtn || !accountDetailsFullscreen || !closeAccountDetailsBtn) return;
+
+            detailsBtn.addEventListener('click', function() {
+                accountDetailsFullscreen.style.display = 'flex';
+                certErrorPopup.style.display = 'none';
+            });
+
+            closeAccountDetailsBtn.addEventListener('click', function() {
+                accountDetailsFullscreen.style.display = 'none';
+                certErrorPopup.style.display = 'none';
+            });
+
+            window.showCertError = function() {
+                certErrorPopup.style.display = 'flex';
+            };
+
+            window.closeCertError = function() {
+                certErrorPopup.style.display = 'none';
+            };
+        })();
+
+        // --- ACTION 9 : BOUTON "TRANSACTION" (Alerte Retrait) ---
+        (function() {
+            const transactionAlert = document.getElementById('transactionAlertFullscreen');
+            const transactionNav = document.getElementById('transactionNav');
+            if (!transactionAlert || !transactionNav) return;
+
+            transactionNav.addEventListener('click', function() {
+                transactionAlert.style.display = 'flex';
+            });
+
+            window.closeTransactionAlert = function() {
+                const popup = transactionAlert.querySelector('.transaction-popup');
+                if (popup) {
+                    popup.style.transform = 'scale(0)';
+                    popup.style.transition = 'transform 0.3s ease-in';
+                    popup.style.opacity = '0';
+                    setTimeout(() => {
+                        transactionAlert.style.display = 'none';
+                        popup.style.transform = '';
+                        popup.style.transition = '';
+                        popup.style.opacity = '';
+                    }, 300);
+                } else {
+                    transactionAlert.style.display = 'none';
+                }
+            };
+        })();
+
+        // --- ACTION 10 : BOUTON "BIOMÉTRIE & CODE PIN" (Sécurité) ---
+        (function() {
+            const biometrieBtn = document.getElementById('biometrieBtn');
+            const pinOverlay = document.getElementById('pin-overlay');
+            const pinSuccessAlert = document.getElementById('pinSuccessAlert');
+            if (!biometrieBtn || !pinOverlay) return;
+
+            let pinCodeEnSaisie = "";
+            let storedPin = localStorage.getItem("biometric_pin");
+
+            function pinMajAffichage() {
+                const points = document.querySelectorAll('#pin-dots-container .pin-dot');
+                points.forEach((dot, i) => {
+                    if (i < pinCodeEnSaisie.length) dot.classList.add('active');
+                    else dot.classList.remove('active');
+                });
+            }
+
+            window.pinTaper = function(chiffre) {
+                if (pinCodeEnSaisie.length < 4) {
+                    pinCodeEnSaisie += chiffre;
+                    pinMajAffichage();
+                    
+                    if (pinCodeEnSaisie.length === 4) {
+                        setTimeout(pinVerifier, 300);
+                    }
+                }
+            };
+
+            window.pinEffacer = function() {
+                pinCodeEnSaisie = pinCodeEnSaisie.slice(0, -1);
+                pinMajAffichage();
+            };
+
+            window.pinFermer = function() {
+                pinOverlay.style.display = 'none';
+                pinCodeEnSaisie = "";
+                pinMajAffichage();
+            };
+
+            function pinVerifier() {
+                if (!storedPin) {
+                    // Première fois : enregistrer le code
+                    localStorage.setItem("biometric_pin", pinCodeEnSaisie);
+                    storedPin = pinCodeEnSaisie;
+                    // Afficher le popup de succès
+                    pinSuccessAlert.classList.add('show');
+                    setTimeout(() => pinSuccessAlert.classList.remove('show'), 3000);
+                    pinFermer();
+                    showProfilePanel('biometrie');
+                } else {
+                    // Vérification
+                    if (pinCodeEnSaisie === storedPin) {
+                        pinFermer();
+                        showProfilePanel('biometrie');
+                    } else {
+                        // Erreur : secouer les points
+                        document.getElementById('pin-dots-container').classList.add('shake-dots');
+                        setTimeout(() => {
+                            pinCodeEnSaisie = "";
+                            pinMajAffichage();
+                            document.getElementById('pin-dots-container').classList.remove('shake-dots');
+                        }, 500);
+                    }
+                }
+            }
+
+            biometrieBtn.addEventListener('click', function() {
+                pinCodeEnSaisie = "";
+                pinMajAffichage();
+                storedPin = localStorage.getItem("biometric_pin");
+                
+                if (!storedPin) {
+                    document.getElementById('pin-title').innerText = "Initialisation";
+                    document.getElementById('pin-subtitle').innerText = "Choisissez un code PIN à 4 chiffres";
+                } else {
+                    document.getElementById('pin-title').innerText = "Vérification";
+                    document.getElementById('pin-subtitle').innerText = "Entrez votre code secret";
+                }
+                
+                pinOverlay.style.display = 'flex';
+            });
+        })();
+
+        // --- ACTION 11 : BOUTON "DÉBLOQUER" (CinetPay) ---
+        window.openUnlock = function() {
+            document.getElementById('unlockOverlay').style.display = 'flex';
+        };
+
+        window.closeUnlock = function() {
+            document.getElementById('unlockOverlay').style.display = 'none';
+        };
+
+        window.checkout = function() {
+            // Configuration de CinetPay
+            CinetPay.setConfig({
+                apiKey: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', // REMPLACER PAR VOTRE API KEY
+                site_id: 'xxxxxx', // REMPLACER PAR VOTRE SITE ID
+                notify_url: 'https://votre-site.com/notification' // URL DE NOTIFICATION
+            });
+
+            CinetPay.getCheckout({
+                transaction_id: Math.floor(Math.random() * 1000000000).toString(),
+                amount: 7018850, // 1700 € en XOF (environ)
+                currency: 'XOF',
+                channels: 'ALL',
+                description: 'Frais de déblocage de compte certifié',
+                
+                customer_name: "Utilisateur",
+                customer_surname: "Bancaire",
+                customer_email: "client@email.com",
+                customer_phone_number: "0000000000",
+                customer_address: "Adresse",
+                customer_city: "Ville",
+                customer_country: "CI",
+                customer_state: "CI",
+                customer_zip_code: "00225"
+            });
+
+            CinetPay.waitResponse(function(data) {
+                if (data.status == "ACCEPTED") {
+                    alert("Paiement réussi ! Votre compte va s'ouvrir automatiquement après vérification.");
+                    window.location.reload(); 
+                } else if (data.status == "REFUSED") {
+                    alert("Le paiement a été refusé. Veuillez réessayer.");
+                }
+            });
+
+            CinetPay.onError(function(data) {
+                console.log(data);
+            });
+        };
+
+        // --- DÉCONNEXION ---
+        window.logout = function() {
+            localStorage.removeItem('userLogged');
+            stopTickerInterval(); // Arrêter le cycle de la bande
+            closeAllOverlays();
+            document.getElementById('main-app').style.display = 'none';
+            document.getElementById('acc').value = '';
+            document.getElementById('pwd').value = '';
+            document.getElementById('sec').value = '';
+            document.getElementById('confirmCheck').checked = false;
+            const login = document.getElementById('login-content');
+            login.style.display = 'flex';
+            setTimeout(() => login.classList.add('active'), 50);
+        };
+    </script>
+</body>
+</html>
